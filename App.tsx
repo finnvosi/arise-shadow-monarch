@@ -3,7 +3,6 @@ import {
   Image,
   Modal,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
@@ -39,7 +38,7 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.root}>
+    <View style={styles.root}>
       <StatusBar style="light" />
       <View style={styles.stage}>
         {/* 100% FULLSCREEN EDGE-TO-EDGE 3D ARENA */}
@@ -184,14 +183,48 @@ export default function App() {
           </View>
         </Modal>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#07080c' },
-  stage: { flex: 1, width: '100%', height: '100%', position: 'relative', backgroundColor: '#07080c' },
-  topHud: { position: 'absolute', top: 10, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 },
+  root: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#07080c',
+    overflow: 'hidden',
+  },
+  stage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#07080c',
+    overflow: 'hidden',
+  },
+  topHud: {
+    position: 'absolute',
+    top: 8,
+    left: 0,
+    right: 0,
+    paddingLeft: 'max(16px, env(safe-area-inset-left, 16px))' as any,
+    paddingRight: 'max(16px, env(safe-area-inset-right, 16px))' as any,
+    paddingTop: 'env(safe-area-inset-top, 0px)' as any,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 16,
+  },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   heroImg: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
   rankBadge: { position: 'absolute', bottom: -3, right: -3, backgroundColor: '#e11d2e', borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 },
@@ -219,13 +252,36 @@ const styles = StyleSheet.create({
   ariseBtn: { backgroundColor: '#6d28d9', paddingHorizontal: 32, paddingVertical: 12, borderRadius: 99, borderWidth: 1, borderColor: '#22d3ee' },
   ariseBtnText: { color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 4 },
   ariseTarget: { color: '#ddd6fe', fontSize: 12, fontWeight: '600' },
-  toast: { position: 'absolute', top: 84, alignSelf: 'center', backgroundColor: 'rgba(8,12,22,0.88)', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 99, borderWidth: 1, borderColor: 'rgba(34,211,238,0.45)' },
+  toast: {
+    position: 'absolute',
+    top: 'max(76px, calc(env(safe-area-inset-top, 0px) + 68px))' as any,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(8,12,22,0.88)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: 'rgba(34,211,238,0.45)',
+  },
   toastText: { color: '#a5f3fc', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  menuDock: { position: 'absolute', bottom: 16, left: 16, flexDirection: 'row', gap: 8 },
+  menuDock: {
+    position: 'absolute',
+    bottom: 'max(14px, env(safe-area-inset-bottom, 14px))' as any,
+    left: 'max(16px, env(safe-area-inset-left, 16px))' as any,
+    flexDirection: 'row',
+    gap: 8,
+  },
   menuPill: { backgroundColor: 'rgba(8,10,16,0.72)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   menuPillActive: { borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.18)' },
   menuPillText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  combatCluster: { position: 'absolute', bottom: 16, right: 16, flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  combatCluster: {
+    position: 'absolute',
+    bottom: 'max(14px, env(safe-area-inset-bottom, 14px))' as any,
+    right: 'max(16px, env(safe-area-inset-right, 16px))' as any,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
   skillTile: { width: 52, height: 52, borderRadius: 14, backgroundColor: 'rgba(8,10,16,0.78)', borderWidth: 1, borderColor: 'rgba(34,211,238,0.45)', alignItems: 'center', justifyContent: 'center' },
   skillCooling: { opacity: 0.4 },
   skillLabel: { color: '#22d3ee', fontSize: 8, fontWeight: '900' },
@@ -234,7 +290,16 @@ const styles = StyleSheet.create({
   slashBtnText: { color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   sheetOverlay: { position: 'absolute', inset: 0, flexDirection: 'row', justifyContent: 'flex-end' },
   sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
-  sheetCard: { width: 340, margin: 12, borderRadius: 18, backgroundColor: 'rgba(9,13,22,0.95)', borderWidth: 1, borderColor: 'rgba(34,211,238,0.35)', overflow: 'hidden' },
+  sheetCard: {
+    width: 340,
+    margin: 12,
+    marginRight: 'max(12px, env(safe-area-inset-right, 12px))' as any,
+    borderRadius: 18,
+    backgroundColor: 'rgba(9,13,22,0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,211,238,0.35)',
+    overflow: 'hidden',
+  },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
   sheetTitle: { color: '#22d3ee', fontSize: 11, fontWeight: '900', letterSpacing: 1.5 },
   closeBtn: { width: 28, height: 28, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },

@@ -529,13 +529,36 @@ export const Arena3D: React.FC<Arena3DProps> = ({
 
   return (
     <View style={styles.container} onStartShouldSetResponder={() => true} onResponderGrant={onTapSlash}>
-      <div ref={hostRef} style={{ width: '100%', height: '100%' }} />
+      <div
+        ref={hostRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overflow: 'hidden',
+        }}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, width: '100%', height: '100%', backgroundColor: '#130a1c' },
+  container: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#0e0618',
+    overflow: 'hidden',
+  },
   nativeFallback: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#130a1c', padding: 20 },
   fallbackText: { color: '#22d3ee', fontWeight: '700', textAlign: 'center' },
 });
