@@ -1,0 +1,5 @@
+raw-assets
+.expo
+dist
+.git
+node_modules
