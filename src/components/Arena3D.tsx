@@ -333,6 +333,13 @@ export const Arena3D: React.FC<Arena3DProps> = ({
       renderer.setSize(w, h);
     };
     window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => onResize());
+      resizeObserver.observe(container);
+    }
 
     const clock = new THREE.Clock();
     let currentIsBoss = isBossRef.current;
@@ -418,6 +425,8 @@ export const Arena3D: React.FC<Arena3DProps> = ({
       disposed = true;
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+      resizeObserver?.disconnect();
       renderer.dispose();
     };
   }, []);
