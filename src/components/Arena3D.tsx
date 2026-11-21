@@ -43,6 +43,8 @@ export const Arena3D: React.FC<Arena3DProps> = ({
   const enemyHitRef = useRef(0);
   const firstSlashRef = useRef(true);
   const rebuildShadowsRef = useRef<(() => void) | null>(null);
+  const lastSlashTimeRef = useRef(0);
+  const attackComboRef = useRef(0);
 
   useEffect(() => {
     rebuildShadowsRef.current?.();
@@ -53,6 +55,14 @@ export const Arena3D: React.FC<Arena3DProps> = ({
       firstSlashRef.current = false;
       return;
     }
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - lastSlashTimeRef.current > 1400) {
+      attackComboRef.current = 0;
+    } else {
+      attackComboRef.current = (attackComboRef.current + 1) % 4;
+    }
+    lastSlashTimeRef.current = now;
+
     pulseRef.current = 1;
     enemyHitRef.current = 1;
     heroModelRef.current?.playAttack();
@@ -299,7 +309,10 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     heroAura.position.y = 0.02;
     heroAnchor.add(heroAura);
 
-    // Dual Cross-Slash Energy Crescent Trails
+    // =========================================================================
+    // MULTI-STYLE COMBAT VISUAL FX (TRAILS, SOARING ARCS, THRUSTS & CYCLONE)
+    // =========================================================================
+    // 1. Dual Cross-Slash Energy Crescent Trails (Combo 0)
     const slashArcGeo = new THREE.RingGeometry(0.85, 1.35, 32, 1, 0, Math.PI * 0.8);
     const slashArc1Mat = new THREE.MeshBasicMaterial({
       color: 0x22d3ee,
@@ -324,6 +337,52 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     slashArc2.position.set(0.6, 1.25, -0.6);
     slashArc2.rotation.set(-0.3, 0.4, 0.8);
     heroAnchor.add(slashArc2);
+
+    // 2. Rising Dragon Upper Cleave Soaring Vertical Arc (Combo 1)
+    const risingArcGeo = new THREE.RingGeometry(1.0, 1.6, 32, 1, 0, Math.PI * 0.85);
+    const risingArcMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const risingArcMesh = new THREE.Mesh(risingArcGeo, risingArcMat);
+    risingArcMesh.position.set(0.5, 1.3, -0.4);
+    risingArcMesh.rotation.set(0, Math.PI * 0.5, 0);
+    heroAnchor.add(risingArcMesh);
+
+    // 3. Phantom Shadow Flurry High-Speed Thrust Beams (Combo 2)
+    const flurryGroup = new THREE.Group();
+    heroAnchor.add(flurryGroup);
+    const flurryGeo = new THREE.ConeGeometry(0.06, 1.7, 8);
+    flurryGeo.rotateZ(-Math.PI / 2); // orient point forward (+X)
+    const flurryMat1 = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0, depthWrite: false });
+    const flurryMat2 = new THREE.MeshBasicMaterial({ color: 0xa855f7, transparent: true, opacity: 0, depthWrite: false });
+    const flurryMat3 = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0, depthWrite: false });
+    const flurryBeam1 = new THREE.Mesh(flurryGeo, flurryMat1);
+    flurryBeam1.position.set(0.95, 1.35, -0.12);
+    flurryGroup.add(flurryBeam1);
+    const flurryBeam2 = new THREE.Mesh(flurryGeo, flurryMat2);
+    flurryBeam2.position.set(0.95, 1.15, 0.12);
+    flurryGroup.add(flurryBeam2);
+    const flurryBeam3 = new THREE.Mesh(flurryGeo, flurryMat3);
+    flurryBeam3.position.set(1.15, 1.25, 0.0);
+    flurryGroup.add(flurryBeam3);
+
+    // 4. Monarch 360 Cyclone Whirlwind Shockwave Ring (Combo 3)
+    const whirlwindGeo = new THREE.RingGeometry(0.8, 2.9, 48, 1, 0, Math.PI * 2);
+    const whirlwindMat = new THREE.MeshBasicMaterial({
+      color: 0xa855f7,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const whirlwindMesh = new THREE.Mesh(whirlwindGeo, whirlwindMat);
+    whirlwindMesh.rotation.x = -Math.PI / 2;
+    whirlwindMesh.position.set(0, 1.15, 0);
+    heroAnchor.add(whirlwindMesh);
 
     // =========================================================================
     // ENEMY SLOT (MOB OR BOSS)
@@ -500,58 +559,162 @@ export const Arena3D: React.FC<Arena3DProps> = ({
         domainRing.rotation.z += dt * 1.5;
       }
 
-      // Tap Slash Hero Dash animation
-      if (pulseRef.current > 0) {
-        pulseRef.current = Math.max(0, pulseRef.current - dt * 3.6);
-      }
-      const dash = Math.sin(pulseRef.current * Math.PI);
-      heroAnchor.position.x = -1.6 + dash * 2.1;
+      // -----------------------------------------------------------------------
+      // MULTI-STYLE DYNAMIC COMBAT DISPLACEMENT, SKELETAL RIGS & BLADE TRAILS
+      // -----------------------------------------------------------------------
+      const currentCombo = attackComboRef.current % 4;
 
-      // Dynamic Dual Cross-Slash Energy Blade Trails
-      if (pulseRef.current > 0.15 && pulseRef.current < 0.85) {
-        const arcIntensity = Math.sin(((pulseRef.current - 0.15) / 0.7) * Math.PI);
-        slashArc1Mat.opacity = arcIntensity * 0.95;
-        slashArc2Mat.opacity = arcIntensity * 0.85;
-        slashArc1.scale.setScalar(0.9 + (1 - pulseRef.current) * 0.6);
-        slashArc2.scale.setScalar(0.9 + (1 - pulseRef.current) * 0.6);
-        slashArc1.rotation.z = -0.6 + (1 - pulseRef.current) * 2.2;
-        slashArc2.rotation.z = 0.8 - (1 - pulseRef.current) * 2.2;
-      } else {
+      if (pulseRef.current > 0) {
+        pulseRef.current = Math.max(0, pulseRef.current - dt * 3.4);
+      }
+      if (enemyHitRef.current > 0) {
+        enemyHitRef.current = Math.max(0, enemyHitRef.current - dt * 4.4);
+      }
+
+      const p = pulseRef.current;
+      const hit = enemyHitRef.current;
+      const hitRecoil = Math.sin(hit * Math.PI);
+
+      if (currentCombo === 0) {
+        // =====================================================================
+        // STYLE 0: DUAL CROSS-CLEAVE (Horizontal / Diagonal X-Slash)
+        // =====================================================================
+        const dash = Math.sin(p * Math.PI);
+        heroAnchor.position.x = -1.6 + dash * 1.85;
+        heroAnchor.position.y = 0.22;
+        heroAnchor.rotation.y = Math.PI * 0.44;
+
+        enemyAnchor.position.x = 1.6 + hitRecoil * 0.42;
+        enemyAnchor.position.y = 0.22 + hitRecoil * 0.08;
+        enemyAnchor.position.z = -0.2;
+
+        if (p > 0.15 && p < 0.85) {
+          const arcIntensity = Math.sin(((p - 0.15) / 0.7) * Math.PI);
+          slashArc1Mat.opacity = arcIntensity * 0.95;
+          slashArc2Mat.opacity = arcIntensity * 0.85;
+          slashArc1.scale.setScalar(0.9 + (1 - p) * 0.6);
+          slashArc2.scale.setScalar(0.9 + (1 - p) * 0.6);
+          slashArc1.rotation.z = -0.6 + (1 - p) * 2.2;
+          slashArc2.rotation.z = 0.8 - (1 - p) * 2.2;
+        } else {
+          slashArc1Mat.opacity = 0;
+          slashArc2Mat.opacity = 0;
+        }
+        risingArcMat.opacity = 0;
+        flurryMat1.opacity = 0;
+        flurryMat2.opacity = 0;
+        flurryMat3.opacity = 0;
+        whirlwindMat.opacity = 0;
+
+      } else if (currentCombo === 1) {
+        // =====================================================================
+        // STYLE 1: RISING DRAGON UPPER CLEAVE (Vertical Airborne Leap & Slash)
+        // =====================================================================
+        const dash = Math.sin(p * Math.PI);
+        const leap = Math.sin(p * Math.PI) * 0.65;
+        heroAnchor.position.x = -1.6 + dash * 1.65;
+        heroAnchor.position.y = 0.22 + leap;
+        heroAnchor.rotation.y = Math.PI * 0.44;
+
+        // Enemy is knocked UPWARD into the air by the rising slash!
+        enemyAnchor.position.x = 1.6 + hitRecoil * 0.28;
+        enemyAnchor.position.y = 0.22 + hitRecoil * 0.52;
+        enemyAnchor.position.z = -0.2;
+
+        if (p > 0.15 && p < 0.85) {
+          const arcIntensity = Math.sin(((p - 0.15) / 0.7) * Math.PI);
+          risingArcMat.opacity = arcIntensity * 0.95;
+          risingArcMesh.scale.setScalar(0.85 + (1 - p) * 0.7);
+          risingArcMesh.rotation.y = Math.PI * 0.5;
+          risingArcMesh.rotation.x = -0.3 + (1 - p) * 1.8;
+        } else {
+          risingArcMat.opacity = 0;
+        }
         slashArc1Mat.opacity = 0;
         slashArc2Mat.opacity = 0;
-      }
+        flurryMat1.opacity = 0;
+        flurryMat2.opacity = 0;
+        flurryMat3.opacity = 0;
+        whirlwindMat.opacity = 0;
 
-      // Enemy hit recoil
-      if (enemyHitRef.current > 0) {
-        enemyHitRef.current = Math.max(0, enemyHitRef.current - dt * 4.8);
-      }
-      const hitRecoil = Math.sin(enemyHitRef.current * Math.PI);
-      enemyAnchor.position.x = 1.6 + hitRecoil * 0.4;
-      enemyAnchor.position.y = 0.22 + hitRecoil * 0.15;
+      } else if (currentCombo === 2) {
+        // =====================================================================
+        // STYLE 2: PHANTOM SHADOW FLURRY (Triple Piston Stabs)
+        // =====================================================================
+        const lunge = Math.sin(p * Math.PI) * 1.7 + Math.sin(p * Math.PI * 3.0) * 0.2;
+        heroAnchor.position.x = -1.6 + lunge;
+        heroAnchor.position.y = 0.22;
+        heroAnchor.rotation.y = Math.PI * 0.44;
 
-      // Grounded character anchors (breathing is handled organically by the skeletal spine & knee joints)
-      heroAnchor.position.y = 0.22;
-      if (enemyHitRef.current <= 0) {
+        // Rapid hit tremors on enemy
+        const stutter = Math.sin(hit * Math.PI * 5.0) * 0.08;
+        enemyAnchor.position.x = 1.6 + hitRecoil * 0.35 + stutter;
         enemyAnchor.position.y = 0.22;
+        enemyAnchor.position.z = -0.2;
+
+        // Sequential piercing beams
+        flurryMat1.opacity = p > 0.65 && p < 0.95 ? Math.sin(((p - 0.65) / 0.3) * Math.PI) * 0.95 : 0;
+        flurryMat2.opacity = p > 0.35 && p < 0.65 ? Math.sin(((p - 0.35) / 0.3) * Math.PI) * 0.95 : 0;
+        flurryMat3.opacity = p > 0.05 && p < 0.35 ? Math.sin(((p - 0.05) / 0.3) * Math.PI) * 0.95 : 0;
+
+        slashArc1Mat.opacity = 0;
+        slashArc2Mat.opacity = 0;
+        risingArcMat.opacity = 0;
+        whirlwindMat.opacity = 0;
+
+      } else {
+        // =====================================================================
+        // STYLE 3: MONARCH 360 CYCLONE WHIRLWIND (Full 360 Spin Cleave)
+        // =====================================================================
+        const spinDash = Math.sin(p * Math.PI) * 2.0;
+        const spinAngle = (1 - p) * Math.PI * 2.0;
+        heroAnchor.position.x = -1.6 + spinDash;
+        heroAnchor.position.y = 0.22 + Math.sin(p * Math.PI) * 0.22;
+        heroAnchor.rotation.y = Math.PI * 0.44 + spinAngle;
+
+        // Enemy is blasted backward and sideways!
+        enemyAnchor.position.x = 1.6 + hitRecoil * 0.62;
+        enemyAnchor.position.z = -0.2 - hitRecoil * 0.38;
+        enemyAnchor.position.y = 0.22 + hitRecoil * 0.15;
+
+        if (p > 0.15 && p < 0.88) {
+          const discIntensity = Math.sin(((p - 0.15) / 0.73) * Math.PI);
+          whirlwindMat.opacity = discIntensity * 0.92;
+          whirlwindMesh.scale.setScalar(0.7 + (1 - p) * 1.1);
+          whirlwindMesh.rotation.z += dt * 12.0;
+        } else {
+          whirlwindMat.opacity = 0;
+        }
+        slashArc1Mat.opacity = 0;
+        slashArc2Mat.opacity = 0;
+        risingArcMat.opacity = 0;
+        flurryMat1.opacity = 0;
+        flurryMat2.opacity = 0;
+        flurryMat3.opacity = 0;
+      }
+
+      if (hit <= 0) {
+        enemyAnchor.position.y = 0.22;
+        enemyAnchor.position.z = -0.2;
       }
 
       // =======================================================================
       // PROCEDURAL SKELETAL RIG ANIMATIONS
       // =======================================================================
-      // 1. Jinwoo Rig (Combat stance, breathing, coat physics, 3-phase dual cross-slash combo)
+      // 1. Jinwoo Rig (Combat stance, breathing, coat physics, 4 distinct martial arts attack styles)
       if (jinwooRig) {
-        jinwooRig.update(t, dt, pulseRef.current);
+        jinwooRig.update(t, dt, pulseRef.current, currentCombo);
       }
 
-      // 2. Enemy Rig (Monster breathing, head tracking, hit stagger & recoil)
+      // 2. Enemy Rig (Monster breathing, head tracking, concussive hit stagger & custom flinch)
       const activeEnemyRig = currentIsBoss ? bossRig : mobRig;
       if (activeEnemyRig) {
-        activeEnemyRig.update(t, dt, enemyHitRef.current, currentIsBoss);
+        activeEnemyRig.update(t, dt, enemyHitRef.current, currentIsBoss, currentCombo);
       }
 
-      // 3. Shadow Soldiers Rig (Guard stance, float sway, attack follow-through)
+      // 3. Shadow Soldiers Rig (Guard stance, float sway, attack follow-through per style)
       shadowUnits.forEach(({ rig }, i) => {
-        rig?.update(t, dt, i, pulseRef.current);
+        rig?.update(t, dt, i, pulseRef.current, currentCombo);
       });
 
       // Shadow army floating hover

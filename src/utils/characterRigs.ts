@@ -136,8 +136,9 @@ export class JinwooRigController {
    * @param t Elapsed time in seconds.
    * @param dt Delta time in seconds.
    * @param slashProgress Attack progress from 1.0 (start) down to 0.0 (finished).
+   * @param attackCombo Attack style variation index (0: Cross-Cleave, 1: Rising Dragon, 2: Shadow Flurry, 3: Cyclone Whirlwind).
    */
-  public update(t: number, dt: number, slashProgress = 0): void {
+  public update(t: number, dt: number, slashProgress = 0, attackCombo = 0): void {
     const breath = getOrganicBreath(t, 0.42); // ~25 breaths per minute
     const breathSway = Math.sin(t * 1.3) * 0.015;
 
@@ -197,7 +198,6 @@ export class JinwooRigController {
     // Left Arm (Parry / Reverse-Grip Dagger)
     // - Upper arm hangs naturally along ribcage (X = -1.15, Z = -0.20)
     // - Forearm bent forward at solar plexus (Z = -1.20)
-    // - Hand holds dagger angled forward in defensive ready
     let targetLArmX = -1.15 + breath * 0.02;
     let targetLArmY = 0;
     let targetLArmZ = -0.20 + breathSway;
@@ -216,65 +216,155 @@ export class JinwooRigController {
     let targetRForeX = -0.20;
 
     // -------------------------------------------------------------------------
-    // 4. FLUID 3-PHASE MARTIAL ARTS SLASH ATTACK
+    // 4. DYNAMIC MULTI-STYLE ATTACK SYSTEM (4 DISTINCT COMBAT ACTIONS)
     // -------------------------------------------------------------------------
     if (slashProgress > 0) {
-      if (slashProgress > 0.7) {
-        // Phase 1: Anticipation & Coiling (Windup)
-        // Jinwoo sinks lower, draws right dagger back, shields with left
-        const p = (slashProgress - 0.7) / 0.3; // 1 -> 0
-        const easeWindup = Math.sin(p * Math.PI * 0.5);
+      const combo = attackCombo % 4;
 
+      if (combo === 0) {
+        // =====================================================================
+        // COMBO 0: DUAL CROSS-CLEAVE (Diagonal Intersecting X-Slash)
+        // =====================================================================
+        if (slashProgress > 0.7) {
+          const p = (slashProgress - 0.7) / 0.3; // 1 -> 0
+          const easeWindup = Math.sin(p * Math.PI * 0.5);
+          if (this.spine) {
+            this.spine.bone.rotation.x += 0.16 * easeWindup;
+            this.spine.bone.rotation.y -= 0.28 * easeWindup;
+          }
+          targetRArmX -= 0.35 * easeWindup;
+          targetRArmZ -= 0.25 * easeWindup;
+          targetRForeZ -= 0.30 * easeWindup;
+          targetLArmX -= 0.15 * easeWindup;
+          targetLArmZ += 0.20 * easeWindup;
+        } else if (slashProgress > 0.2) {
+          const p = (slashProgress - 0.2) / 0.5; // 1 -> 0
+          const strikeSine = Math.sin((1 - p) * Math.PI);
+          if (this.spine) {
+            this.spine.bone.rotation.x += 0.24 * strikeSine;
+            this.spine.bone.rotation.y += 0.48 * strikeSine;
+          }
+          if (this.head) {
+            this.head.bone.rotation.x -= 0.12 * strikeSine;
+          }
+          // Downward diagonal slash right, rising diagonal slash left
+          targetRArmX += 0.75 * strikeSine;
+          targetRArmZ += 0.65 * strikeSine;
+          targetRForeZ -= 0.85 * strikeSine;
+          targetLArmX += 0.65 * strikeSine;
+          targetLArmZ -= 0.65 * strikeSine;
+          targetLForeZ += 0.85 * strikeSine;
+        } else {
+          const p = slashProgress / 0.2;
+          const settle = Math.sin(p * Math.PI * 0.5);
+          if (this.spine) this.spine.bone.rotation.x += 0.05 * settle;
+          targetRArmX += 0.08 * settle;
+          targetLArmX += 0.08 * settle;
+        }
+
+      } else if (combo === 1) {
+        // =====================================================================
+        // COMBO 1: RISING DRAGON UPPER CLEAVE (Soaring Airborne Uppercut)
+        // =====================================================================
+        if (slashProgress > 0.65) {
+          // Low crouch preparation
+          const p = (slashProgress - 0.65) / 0.35;
+          const crouch = Math.sin(p * Math.PI * 0.5);
+          if (this.spine) this.spine.bone.rotation.x += 0.28 * crouch;
+          if (this.lThigh) this.lThigh.bone.rotation.x += 0.25 * crouch;
+          if (this.rThigh) this.rThigh.bone.rotation.x += 0.20 * crouch;
+          // Right dagger drops low to hip in reverse grip
+          targetRArmX -= 0.45 * crouch;
+          targetRArmZ -= 0.35 * crouch;
+          targetRForeZ += 0.40 * crouch;
+          targetLArmZ += 0.25 * crouch;
+        } else if (slashProgress > 0.18) {
+          // Explosive soaring vertical slice past shoulder into the sky
+          const p = (slashProgress - 0.18) / 0.47;
+          const strikeSine = Math.sin((1 - p) * Math.PI);
+          if (this.spine) {
+            this.spine.bone.rotation.x -= 0.22 * strikeSine; // chest arches upward
+            this.spine.bone.rotation.y += 0.25 * strikeSine;
+          }
+          if (this.head) this.head.bone.rotation.x += 0.22 * strikeSine; // head tracks blade up
+          if (this.lThigh) this.lThigh.bone.rotation.x -= 0.35 * strikeSine;
+          if (this.rThigh) this.rThigh.bone.rotation.x -= 0.45 * strikeSine;
+
+          // Right arm surges vertically upward in majestic arc
+          targetRArmX += 1.35 * strikeSine;
+          targetRArmZ += 0.75 * strikeSine;
+          targetRForeZ -= 1.25 * strikeSine;
+
+          // Left arm sweeps backward for aerodynamic balance
+          targetLArmX -= 0.45 * strikeSine;
+          targetLArmZ -= 0.40 * strikeSine;
+        } else {
+          const p = slashProgress / 0.18;
+          const settle = Math.sin(p * Math.PI * 0.5);
+          targetRArmX += 0.12 * settle;
+        }
+
+      } else if (combo === 2) {
+        // =====================================================================
+        // COMBO 2: PHANTOM SHADOW FLURRY (Triple Lightning-Fast Piston Stabs)
+        // =====================================================================
         if (this.spine) {
-          this.spine.bone.rotation.x += 0.16 * easeWindup;
-          this.spine.bone.rotation.y -= 0.28 * easeWindup; // coil torso back
+          this.spine.bone.rotation.x += 0.18 * Math.sin(slashProgress * Math.PI);
         }
 
-        // Right arm cocks back ready to strike
-        targetRArmX -= 0.35 * easeWindup;
-        targetRArmZ -= 0.25 * easeWindup;
-        targetRForeZ -= 0.30 * easeWindup;
-
-        // Left arm raises to parry/shield
-        targetLArmX -= 0.15 * easeWindup;
-        targetLArmZ += 0.20 * easeWindup;
-      } else if (slashProgress > 0.22) {
-        // Phase 2: Explosive Dual Cross-Slash Execution
-        const p = (slashProgress - 0.22) / 0.48; // 1 -> 0
-        const strikePhase = 1 - p; // 0 -> 1
-        const strikeSine = Math.sin(strikePhase * Math.PI); // smooth arc
-
-        if (this.spine) {
-          this.spine.bone.rotation.x += 0.24 * strikeSine;
-          this.spine.bone.rotation.y += 0.48 * strikeSine; // explosive torso drive
+        if (slashProgress > 0.65) {
+          // Thrust 1: Right dagger forward piston
+          const p = (slashProgress - 0.65) / 0.30;
+          const thrust = Math.sin((1 - p) * Math.PI);
+          if (this.spine) this.spine.bone.rotation.y += 0.32 * thrust;
+          targetRArmX += 0.90 * thrust;
+          targetRArmZ += 0.75 * thrust;
+          targetRForeZ -= 0.95 * thrust;
+          targetLArmX -= 0.20 * thrust;
+        } else if (slashProgress > 0.35) {
+          // Thrust 2: Left dagger forward piercing thrust
+          const p = (slashProgress - 0.35) / 0.30;
+          const thrust = Math.sin((1 - p) * Math.PI);
+          if (this.spine) this.spine.bone.rotation.y -= 0.32 * thrust;
+          targetLArmX += 0.90 * thrust;
+          targetLArmZ -= 0.75 * thrust;
+          targetLForeZ += 0.95 * thrust;
+          targetRArmX -= 0.20 * thrust;
+        } else if (slashProgress > 0.05) {
+          // Thrust 3: Dual simultaneous finisher
+          const p = (slashProgress - 0.05) / 0.30;
+          const thrust = Math.sin((1 - p) * Math.PI);
+          targetRArmX += 1.05 * thrust;
+          targetRArmZ += 0.70 * thrust;
+          targetRForeZ -= 0.90 * thrust;
+          targetLArmX += 1.05 * thrust;
+          targetLArmZ -= 0.70 * thrust;
+          targetLForeZ += 0.90 * thrust;
         }
-        if (this.head) {
-          this.head.bone.rotation.x -= 0.12 * strikeSine; // locked forward on enemy
-        }
 
-        // Right Arm: Blistering downward diagonal cross-slash
-        targetRArmX += 0.75 * strikeSine;
-        targetRArmZ += 0.65 * strikeSine;
-        targetRForeZ -= 0.85 * strikeSine;
-
-        // Left Arm: Rising diagonal parry-slash
-        targetLArmX += 0.65 * strikeSine;
-        targetLArmZ -= 0.65 * strikeSine;
-        targetLForeZ += 0.85 * strikeSine;
       } else {
-        // Phase 3: Smooth Elastic Settle
-        const p = slashProgress / 0.22; // 1 -> 0
-        const settle = Math.sin(p * Math.PI * 0.5);
+        // =====================================================================
+        // COMBO 3: MONARCH 360 CYCLONE WHIRLWIND (Full Rotational Spin Cleave)
+        // =====================================================================
+        const spinSine = Math.sin(slashProgress * Math.PI);
         if (this.spine) {
-          this.spine.bone.rotation.x += 0.05 * settle;
+          this.spine.bone.rotation.x += 0.15 * spinSine;
+          this.spine.bone.rotation.y += 0.20 * Math.cos(slashProgress * Math.PI * 2);
         }
-        targetRArmX += 0.08 * settle;
-        targetLArmX += 0.08 * settle;
+
+        // Arms flung wide horizontally carving full circular perimeter
+        targetLArmX = -0.35 * spinSine - 1.15 * (1 - spinSine);
+        targetLArmZ = -0.85 * spinSine - 0.20 * (1 - spinSine);
+        targetLForeZ = -0.45 * spinSine - 1.20 * (1 - spinSine);
+
+        targetRArmX = -0.35 * spinSine - 1.15 * (1 - spinSine);
+        targetRArmZ = 0.85 * spinSine + 0.20 * (1 - spinSine);
+        targetRForeZ = 0.45 * spinSine + 1.20 * (1 - spinSine);
       }
     }
 
     // Apply smoothed bone rotations
-    const armLerpSpeed = slashProgress > 0 ? 24 : 14;
+    const armLerpSpeed = slashProgress > 0 ? 26 : 14;
     if (this.lUpperArm) {
       this.lUpperArm.bone.rotation.x = smoothDamp(this.lUpperArm.bone.rotation.x, targetLArmX, armLerpSpeed, dt);
       this.lUpperArm.bone.rotation.y = smoothDamp(this.lUpperArm.bone.rotation.y, targetLArmY, armLerpSpeed, dt);
@@ -297,9 +387,13 @@ export class JinwooRigController {
     // -------------------------------------------------------------------------
     // 5. SECONDARY MOTION: AERODYNAMIC TRENCH COAT CLOTH PROPAGATION
     // -------------------------------------------------------------------------
-    const coatWindSpeed = slashProgress > 0 ? 8.5 : 2.8;
-    const coatFlutterAmp = slashProgress > 0 ? 0.24 : 0.065;
+    const isWhirlwind = slashProgress > 0 && attackCombo % 4 === 3;
+    const isRising = slashProgress > 0 && attackCombo % 4 === 1;
+
+    const coatWindSpeed = slashProgress > 0 ? (isWhirlwind ? 12.0 : 8.5) : 2.8;
+    const coatFlutterAmp = slashProgress > 0 ? (isWhirlwind ? 0.32 : 0.24) : 0.065;
     const coatDrag = slashProgress > 0 ? 0.42 * Math.sin(slashProgress * Math.PI) : 0;
+    const centrifugal = isWhirlwind ? Math.sin(slashProgress * Math.PI) * 0.45 : 0;
 
     for (const { binding, depth, stripIndex } of this.coatBones) {
       // Traveling harmonic wave from hip to hem with phase offset
@@ -308,8 +402,17 @@ export class JinwooRigController {
       const waveZ = Math.sin(phase) * coatFlutterAmp * depthAmp;
       const waveX = Math.cos(phase * 0.9) * (coatFlutterAmp * 0.6) * depthAmp;
 
-      const targetZ = binding.restRotation.z + waveZ + (stripIndex >= 3 ? -coatDrag : coatDrag);
-      const targetX = binding.restRotation.x + waveX - coatDrag * 0.5;
+      let targetZ = binding.restRotation.z + waveZ + (stripIndex >= 3 ? -coatDrag : coatDrag);
+      let targetX = binding.restRotation.x + waveX - coatDrag * 0.5;
+
+      if (centrifugal > 0) {
+        // Outward radial centrifugal expansion during 360 whirlwind
+        targetZ += (stripIndex >= 3 ? -centrifugal : centrifugal) * (depth * 0.4);
+        targetX += centrifugal * 0.6 * (depth * 0.35);
+      } else if (isRising) {
+        // Downward and back streamline drag during vertical leap
+        targetX -= coatDrag * 0.4 * depth;
+      }
 
       binding.bone.rotation.z = smoothDamp(binding.bone.rotation.z, targetZ, 16, dt);
       binding.bone.rotation.x = smoothDamp(binding.bone.rotation.x, targetX, 16, dt);
@@ -362,8 +465,9 @@ export class EnemyRigController {
    * @param dt Delta time in seconds.
    * @param hitProgress Recoil progress from 1.0 down to 0.0.
    * @param isBoss Whether this is the Blood-Fanged Alpha Boss.
+   * @param attackCombo The incoming attack style variation index.
    */
-  public update(t: number, dt: number, hitProgress = 0, isBoss = false): void {
+  public update(t: number, dt: number, hitProgress = 0, isBoss = false, attackCombo = 0): void {
     const breathRate = isBoss ? 0.35 : 0.5;
     const breath = getOrganicBreath(t, breathRate);
     const sway = Math.sin(t * (breathRate * 2.5)) * 0.04;
@@ -397,20 +501,54 @@ export class EnemyRigController {
     let targetForearmL = this.lLowerArm ? this.lLowerArm.restRotation.x + 0.35 + breath * 0.05 : 0;
     let targetForearmR = this.rLowerArm ? this.rLowerArm.restRotation.x + 0.35 + breath * 0.05 : 0;
 
-    // CONCUSSIVE IMPACT STAGGER: Violent flinch when slashed by Jinwoo
+    // CONCUSSIVE IMPACT STAGGER: Specific reaction per attack style
     if (hitProgress > 0) {
       const flinch = Math.sin(hitProgress * Math.PI);
-      if (this.spine1) {
-        this.spine1.bone.rotation.x -= 0.32 * flinch;
-        this.spine1.bone.rotation.y -= 0.15 * flinch;
+      const combo = attackCombo % 4;
+
+      if (combo === 0) {
+        // Cross-Slash: Concussive snapback
+        if (this.spine1) {
+          this.spine1.bone.rotation.x -= 0.32 * flinch;
+          this.spine1.bone.rotation.y -= 0.15 * flinch;
+        }
+        if (this.head) this.head.bone.rotation.x -= 0.45 * flinch;
+        targetLArmX -= 0.35 * flinch;
+        targetRArmX -= 0.35 * flinch;
+      } else if (combo === 1) {
+        // Rising Upper Cleave: Chin & head knocked UPWARD into the air!
+        if (this.spine1) {
+          this.spine1.bone.rotation.x -= 0.48 * flinch;
+        }
+        if (this.head) {
+          this.head.bone.rotation.x -= 0.70 * flinch; // head lifts up violently
+        }
+        targetLArmX += 0.40 * flinch;
+        targetRArmX += 0.40 * flinch;
+      } else if (combo === 2) {
+        // Shadow Flurry: Rapid high-frequency stutter tremors
+        const stutter = Math.sin(hitProgress * Math.PI * 6.0) * 0.16;
+        if (this.spine1) {
+          this.spine1.bone.rotation.x -= (0.24 * flinch + stutter);
+          this.spine1.bone.rotation.y += stutter * 1.5;
+        }
+        if (this.head) {
+          this.head.bone.rotation.x -= (0.32 * flinch + stutter);
+        }
+        targetLArmX -= 0.25 * flinch;
+        targetRArmX -= 0.25 * flinch;
+      } else {
+        // Cyclone Whirlwind: Violent torso twist & sideways reel
+        if (this.spine1) {
+          this.spine1.bone.rotation.y += 0.65 * flinch;
+          this.spine1.bone.rotation.z -= 0.25 * flinch;
+        }
+        if (this.head) {
+          this.head.bone.rotation.y += 0.45 * flinch;
+        }
+        targetLArmY += 0.45 * flinch;
+        targetRArmY -= 0.45 * flinch;
       }
-      if (this.head) {
-        this.head.bone.rotation.x -= 0.45 * flinch; // head snaps back
-      }
-      targetLArmX -= 0.35 * flinch;
-      targetRArmX -= 0.35 * flinch;
-      targetLArmY += 0.25 * flinch;
-      targetRArmY -= 0.25 * flinch;
     }
 
     if (this.lUpperArm) {
@@ -458,7 +596,7 @@ export class ShadowRigController {
       bindBone(root, 'lowerarmr') || bindBone(root, 'lowerarm.r') || bindBone(root, 'lowerarm_r');
   }
 
-  public update(t: number, dt: number, index = 0, slashProgress = 0): void {
+  public update(t: number, dt: number, index = 0, slashProgress = 0, attackCombo = 0): void {
     const floatSway = Math.sin(t * 2.5 + index * 1.4) * 0.045;
 
     if (this.spine) {
@@ -475,8 +613,24 @@ export class ShadowRigController {
     // Follow Monarch's slash command!
     if (slashProgress > 0) {
       const strike = Math.sin(slashProgress * Math.PI);
-      targetRArmZ -= 0.65 * strike;
-      targetLArmZ += 0.45 * strike;
+      const combo = attackCombo % 4;
+
+      if (combo === 0) {
+        targetRArmZ -= 0.65 * strike;
+        targetLArmZ += 0.45 * strike;
+      } else if (combo === 1) {
+        // Upward rising thrust
+        targetRArmZ -= 0.95 * strike;
+        if (this.spine) this.spine.bone.rotation.x -= 0.22 * strike;
+      } else if (combo === 2) {
+        // Multi-thrust support
+        const rapid = Math.sin(slashProgress * Math.PI * 3.0) * 0.45;
+        targetRArmZ -= (0.50 * strike + rapid);
+      } else {
+        // Wide circle swing
+        targetRArmZ -= 0.75 * strike;
+        targetLArmZ -= 0.75 * strike;
+      }
     }
 
     if (this.rUpperArm) {
