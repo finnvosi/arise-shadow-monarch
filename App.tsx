@@ -1,21 +1,88 @@
-import React, { useState } from 'react';
-import { Image, Modal, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Arena3D } from './src/components/Arena3D';
 import { SystemDrawer } from './src/components/SystemDrawer';
 import { formatNum, getGate, getHeroAtk, getXpNeeded, RANKS } from './src/data/gameData';
 import { useIdleGame } from './src/hooks/useIdleGame';
 import { TabKey } from './src/types/game';
+import { lockToLandscape, requestFullscreenLandscape } from './src/utils/orientation';
 
 const HERO_AVATAR = require('./assets/icon.png');
 
 export default function App() {
   const [openTab, setOpenTab] = useState<TabKey | null>(null);
+  const [dismissRotatePrompt, setDismissRotatePrompt] = useState(false);
+  const { width, height } = useWindowDimensions();
+  const isPortrait = height > width && !dismissRotatePrompt;
+
   const game = useIdleGame();
   const { state, enemy } = game;
   const gate = getGate(state.stage);
   const rank = RANKS[Math.min(RANKS.length - 1, Math.floor((state.level - 1) / 5))];
   const hpPct = enemy.maxHp > 0 ? Math.max(0, Math.min(100, (enemy.hp / enemy.maxHp) * 100)) : 0;
+
+  // Immediately lock to landscape on entering the game
+  useEffect(() => {
+    lockToLandscape();
+
+    // Re-lock if the user returns to the game tab
+    const onFocus = () => lockToLandscape();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', onFocus);
+      return () => window.removeEventListener('focus', onFocus);
+    }
+  }, []);
+
+  // Reset rotate dismiss state when device enters landscape naturally
+  useEffect(() => {
+    if (width >= height) {
+      setDismissRotatePrompt(false);
+    }
+  }, [width, height]);
+
+  // Smooth phone rotating animation for portrait prompt
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (isPortrait) {
+      const loopAnim = Animated.loop(
+        Animated.sequence([
+          Animated.delay(350),
+          Animated.timing(rotateAnim, {
+            toValue: 1,
+            duration: 850,
+            useNativeDriver: true,
+          }),
+          Animated.delay(1200),
+          Animated.timing(rotateAnim, {
+            toValue: 0,
+            duration: 650,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      loopAnim.start();
+      return () => loopAnim.stop();
+    } else {
+      rotateAnim.setValue(0);
+    }
+  }, [isPortrait]);
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '90deg'],
+  });
 
   return (
     <SafeAreaView style={styles.root}>
@@ -162,6 +229,43 @@ export default function App() {
             </View>
           </View>
         </Modal>
+
+        {/* ROTATE TO LANDSCAPE PROMPT (Shows if device is in portrait mode) */}
+        {isPortrait && (
+          <View style={styles.rotateOverlay}>
+            <View style={styles.rotateCard}>
+              <Text style={styles.rotateEyebrow}>[ SYSTEM PROTOCOL ]</Text>
+              <Text style={styles.rotateTitle}>ROTATE YOUR DEVICE</Text>
+
+              {/* Animated Rotating Device */}
+              <View style={styles.phoneWrapper}>
+                <Animated.View style={[styles.phoneFrame, { transform: [{ rotate: spin }] }]}>
+                  <View style={styles.phoneSpeaker} />
+                  <View style={styles.phoneScreen}>
+                    <Text style={styles.phoneScreenIcon}>⚔️</Text>
+                  </View>
+                </Animated.View>
+              </View>
+
+              <Text style={styles.rotateDesc}>
+                The Shadow Monarch's battle arena requires Landscape mode for dual-thumb combat.
+              </Text>
+
+              <Pressable
+                onPress={async () => {
+                  await requestFullscreenLandscape();
+                }}
+                style={styles.fullscreenBtn}
+              >
+                <Text style={styles.fullscreenBtnText}>⛶ ENTER LANDSCAPE</Text>
+              </Pressable>
+
+              <Pressable onPress={() => setDismissRotatePrompt(true)} style={styles.dismissBtn}>
+                <Text style={styles.dismissBtnText}>Continue in Portrait mode</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -225,4 +329,18 @@ const styles = StyleSheet.create({
   modalBody: { color: '#fde68a', fontSize: 13, fontWeight: '700', marginTop: 10 },
   claimBtn: { marginTop: 16, backgroundColor: '#06b6d4', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 10 },
   claimBtnText: { color: '#020617', fontWeight: '900', fontSize: 12 },
+  rotateOverlay: { position: 'absolute', inset: 0, zIndex: 9999, backgroundColor: 'rgba(7,8,12,0.96)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  rotateCard: { width: '100%', maxWidth: 360, backgroundColor: '#0b1220', borderRadius: 20, padding: 24, borderWidth: 1.5, borderColor: '#22d3ee', alignItems: 'center' },
+  rotateEyebrow: { color: '#22d3ee', fontSize: 11, fontWeight: '900', letterSpacing: 2.5 },
+  rotateTitle: { color: '#fff', fontSize: 18, fontWeight: '900', marginTop: 8, letterSpacing: 1.5 },
+  phoneWrapper: { height: 110, alignItems: 'center', justifyContent: 'center', marginVertical: 18 },
+  phoneFrame: { width: 48, height: 82, borderRadius: 10, borderWidth: 2.5, borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.1)', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 },
+  phoneSpeaker: { width: 14, height: 3, borderRadius: 2, backgroundColor: '#22d3ee' },
+  phoneScreen: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  phoneScreenIcon: { fontSize: 18 },
+  rotateDesc: { color: 'rgba(255,255,255,0.7)', fontSize: 12, textAlign: 'center', lineHeight: 18, marginBottom: 20 },
+  fullscreenBtn: { backgroundColor: '#06b6d4', paddingHorizontal: 28, paddingVertical: 12, borderRadius: 12, width: '100%', alignItems: 'center' },
+  fullscreenBtnText: { color: '#020617', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
+  dismissBtn: { marginTop: 14, paddingVertical: 6, paddingHorizontal: 12 },
+  dismissBtnText: { color: 'rgba(255,255,255,0.4)', fontSize: 11, textDecorationLine: 'underline' },
 });

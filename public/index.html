@@ -6,6 +6,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="ARISE RPG" />
+  <meta name="screen-orientation" content="landscape" />
+  <meta name="x5-orientation" content="landscape" />
   <meta name="theme-color" content="#07080c" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -13,6 +15,33 @@
   <style>
     html, body, #root { width: 100%; height: 100%; margin: 0; padding: 0; background: #07080c; overflow: hidden; }
   </style>
+  <script>
+    (function() {
+      function lockLandscape() {
+        try {
+          if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(function() {});
+          } else if (screen.lockOrientation) {
+            screen.lockOrientation('landscape');
+          } else if (screen.mozLockOrientation) {
+            screen.mozLockOrientation('landscape');
+          } else if (screen.msLockOrientation) {
+            screen.msLockOrientation('landscape');
+          }
+        } catch (e) {}
+      }
+
+      // Try immediately on script evaluation
+      lockLandscape();
+      window.addEventListener('DOMContentLoaded', lockLandscape);
+      window.addEventListener('load', lockLandscape);
+
+      // On first touch/gesture, re-attempt lock
+      ['touchstart', 'pointerdown', 'click'].forEach(function(evt) {
+        window.addEventListener(evt, lockLandscape, { passive: true, once: true });
+      });
+    })();
+  </script>
 </head>
 <body>
   <div id="root"></div>
