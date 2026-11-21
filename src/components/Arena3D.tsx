@@ -272,7 +272,7 @@ export const Arena3D: React.FC<Arena3DProps> = ({
 
       loadWeaponModel('/models/weapon_dagger.glb', 0.85).then((weaponL) => {
         if (disposed || !weaponL) return;
-        weaponL.rotation.set(Math.PI * 0.5, 0, 0);
+        weaponL.rotation.set(-Math.PI * 0.5, 0, 0);
         if (lHand) {
           lHand.add(weaponL);
         } else {
@@ -376,10 +376,10 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     scene.add(shadowsContainer);
 
     const slotCoords = [
-      [-2.8, 0.22, -0.8],
-      [-3.0, 0.22, 1.2],
-      [-4.0, 0.22, -0.2],
-      [-4.1, 0.22, 1.6],
+      [-3.3, 0.22, -0.9],
+      [-3.5, 0.22, 1.2],
+      [-4.4, 0.22, -0.3],
+      [-4.5, 0.22, 1.6],
     ];
 
     const shadowUnits: { group: THREE.Group; defId: ShadowId; rig?: ShadowRigController }[] = [];
@@ -529,11 +529,10 @@ export const Arena3D: React.FC<Arena3DProps> = ({
       enemyAnchor.position.x = 1.6 + hitRecoil * 0.4;
       enemyAnchor.position.y = 0.22 + hitRecoil * 0.15;
 
-      // Idle breathing & floating root animations
-      const breath = Math.sin(t * 2.4) * 0.025;
-      heroAnchor.position.y = 0.22 + breath;
+      // Grounded character anchors (breathing is handled organically by the skeletal spine & knee joints)
+      heroAnchor.position.y = 0.22;
       if (enemyHitRef.current <= 0) {
-        enemyAnchor.position.y = 0.22 + Math.sin(t * 2.0 + 1) * 0.035;
+        enemyAnchor.position.y = 0.22;
       }
 
       // =======================================================================
@@ -541,18 +540,18 @@ export const Arena3D: React.FC<Arena3DProps> = ({
       // =======================================================================
       // 1. Jinwoo Rig (Combat stance, breathing, coat physics, 3-phase dual cross-slash combo)
       if (jinwooRig) {
-        jinwooRig.update(t, pulseRef.current);
+        jinwooRig.update(t, dt, pulseRef.current);
       }
 
       // 2. Enemy Rig (Monster breathing, head tracking, hit stagger & recoil)
       const activeEnemyRig = currentIsBoss ? bossRig : mobRig;
       if (activeEnemyRig) {
-        activeEnemyRig.update(t, enemyHitRef.current, currentIsBoss);
+        activeEnemyRig.update(t, dt, enemyHitRef.current, currentIsBoss);
       }
 
       // 3. Shadow Soldiers Rig (Guard stance, float sway, attack follow-through)
       shadowUnits.forEach(({ rig }, i) => {
-        rig?.update(t, i, pulseRef.current);
+        rig?.update(t, dt, i, pulseRef.current);
       });
 
       // Shadow army floating hover
