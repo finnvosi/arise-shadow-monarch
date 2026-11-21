@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "ARISE: Shadow Monarch",
+    "slug": "arise-shadow-monarch",
+    "version": "1.0.0",
+    "orientation": "landscape",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#07080c"
+    },
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#07080c"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/icon.png",
+      "name": "ARISE: Shadow Monarch",
+      "shortName": "ARISE RPG",
+      "themeColor": "#07080c",
+      "backgroundColor": "#07080c",
+      "display": "standalone",
+      "orientation": "landscape"
+    },
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}
