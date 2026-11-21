@@ -122,9 +122,11 @@ export function useIdleGame() {
   }, []);
 
   const applyDamage = useCallback(
-    (rawDmg: number, isCritEligible = true) => {
+    (rawDmg: number, isCritEligible = true, isManual = false) => {
       if (pendingArise) return;
-      setSlashPulse((p) => p + 1);
+      if (isManual) {
+        setSlashPulse((p) => p + 1);
+      }
       const s = stateRef.current;
       let dmg = rawDmg;
       let didCrit = false;
@@ -206,9 +208,9 @@ export function useIdleGame() {
       if (skillCds[idx] > 0 || pendingArise) return;
       const s = stateRef.current;
       setSkillCds((cds) => cds.map((v, i) => (i === idx ? SKILL_MAX_CD[idx] : v)));
-      if (idx === 0) applyDamage(Math.floor(getHeroAtk(s) * 3.4), false);
+      if (idx === 0) applyDamage(Math.floor(getHeroAtk(s) * 3.4), false, true);
       if (idx === 1) {
-        applyDamage(Math.floor(getHeroAtk(s) * 2.6 + getShadowDps(s)), false);
+        applyDamage(Math.floor(getHeroAtk(s) * 2.6 + getShadowDps(s)), false, true);
         notify("[SYSTEM] RULER'S AUTHORITY!");
       }
       if (idx === 2) {

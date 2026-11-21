@@ -50,7 +50,7 @@ export default function App() {
           shadows={state.shadows}
           slashPulse={game.slashPulse}
           domainActive={game.buffs.domain > 0}
-          onTapSlash={() => game.applyDamage(Math.floor(getHeroAtk(state) * 0.9), true)}
+          onTapSlash={() => game.applyDamage(Math.floor(getHeroAtk(state) * 0.9), true, true)}
         />
 
         {/* FLOATING TOP ARPG HUD */}
@@ -135,7 +135,7 @@ export default function App() {
             );
           })}
           <Pressable
-            onPress={() => game.applyDamage(Math.floor(getHeroAtk(state) * 0.9), true)}
+            onPress={() => game.applyDamage(Math.floor(getHeroAtk(state) * 0.9), true, true)}
             style={styles.slashBtn}
           >
             <Text style={styles.slashBtnText}>SLASH</Text>

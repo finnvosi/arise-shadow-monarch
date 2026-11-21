@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 export interface LoadedModel {
   group: THREE.Group;
@@ -52,7 +53,7 @@ function fetchGLTF(url: string): Promise<GLTF | null> {
  * Deep-clones a loaded GLTF scene, retaining skinning, materials, and geometries.
  */
 function cloneScene(scene: THREE.Group): THREE.Group {
-  return scene.clone(true) as THREE.Group;
+  return SkeletonUtils.clone(scene) as THREE.Group;
 }
 
 /**
@@ -67,41 +68,29 @@ export async function loadCharacterModel(
   if (!gltf) return null;
 
   const root = cloneScene(gltf.scene);
+  root.updateMatrixWorld(true);
 
-  // Compute geometry-based bounding box
-  const box = new THREE.Box3();
-  root.traverse((obj) => {
-    const mesh = obj as THREE.Mesh;
-    if (mesh.isMesh && mesh.geometry) {
-      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
-      if (mesh.geometry.boundingBox) {
-        const meshBox = mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld);
-        box.union(meshBox);
-      }
-    }
-  });
-
-  // If geometry box is empty, fallback to setFromObject
-  if (box.isEmpty()) {
-    box.setFromObject(root);
-  }
-
+  // Compute authentic bounding box and normalize height
+  const box = new THREE.Box3().setFromObject(root);
   const size = new THREE.Vector3();
   box.getSize(size);
 
   if (size.y > 0.001) {
     const scale = options.targetHeight / size.y;
     root.scale.setScalar(scale);
+    root.updateMatrixWorld(true);
   }
 
-  // Recalculate box after scale to sit feet at y = 0
+  // Recalculate box after scale to sit feet cleanly at y = 0
   const postBox = new THREE.Box3().setFromObject(root);
   root.position.y -= postBox.min.y;
+  root.updateMatrixWorld(true);
 
   // Enhance and protect materials
   root.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
     if (!mesh.isMesh) return;
+    mesh.frustumCulled = false;
 
     // Filter Jinwoo's extra LOD hair meshes to prevent Z-fighting
     if (mesh.name && /Hair.*NLOD[123]/i.test(mesh.name)) {
@@ -112,15 +101,14 @@ export async function loadCharacterModel(
     const processMat = (mat: THREE.Material): THREE.Material => {
       const std = mat as THREE.MeshStandardMaterial;
       if (options.shadowTint) {
-        // Shadow Monarch extraction: obsidian dark body with vibrant ethereal glow
+        // Shadow Monarch extraction: obsidian dark body with vibrant ethereal rim/glow
         const glowColor = new THREE.Color(options.shadowGlowHex ?? 0x22d3ee);
         const shadowMat = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(0x0a0c18),
+          color: new THREE.Color(0x060810),
           emissive: glowColor,
-          emissiveIntensity: 0.85,
-          map: std.map ?? null,
-          roughness: 0.35,
-          metalness: 0.8,
+          emissiveIntensity: 0.35,
+          roughness: 0.3,
+          metalness: 0.85,
           side: THREE.DoubleSide,
         });
         return shadowMat;
@@ -130,8 +118,9 @@ export async function loadCharacterModel(
       if (std.isMeshStandardMaterial || (std as any).isMeshPhysicalMaterial) {
         std.side = THREE.DoubleSide;
         std.roughness = Math.min(std.roughness ?? 0.5, 0.65);
-        if (std.emissive && std.emissiveIntensity !== undefined) {
-          std.emissiveIntensity = Math.max(std.emissiveIntensity, 0.4);
+        // Only enhance emissive if material already has emissive color
+        if (std.emissive && std.emissive.getHex() !== 0 && std.emissiveIntensity !== undefined) {
+          std.emissiveIntensity = Math.min(std.emissiveIntensity, 0.6);
         }
         return std;
       }
