@@ -3,6 +3,7 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 import * as THREE from 'three';
 import { getGate, SHADOW_DEFS } from '../data/gameData';
 import { ShadowId } from '../types/game';
+import { JinwooRigController, EnemyRigController, ShadowRigController } from '../utils/characterRigs';
 import { loadCharacterModel, loadWeaponModel, LoadedModel } from '../utils/modelLoader';
 
 interface Arena3DProps {
@@ -257,23 +258,13 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     heroAnchor.add(fallbackHero);
 
     // Load authentic Sung Jinwoo 3D Model
+    let jinwooRig: JinwooRigController | null = null;
     loadCharacterModel('/models/jinwoo.glb', { targetHeight: 2.15 }).then((loaded) => {
       if (disposed || !loaded) return;
       heroAnchor.remove(fallbackHero);
       heroAnchor.add(loaded.group);
       heroModelRef.current = loaded;
-
-      // Pose arms into natural combat stance
-      const lArm = loaded.group.getObjectByName('Bip001_L_UpperArm_048');
-      const rArm = loaded.group.getObjectByName('Bip001_R_UpperArm_095');
-      if (lArm) {
-        lArm.rotation.z = -1.1;
-        lArm.rotation.y = 0.35;
-      }
-      if (rArm) {
-        rArm.rotation.z = 1.1;
-        rArm.rotation.y = -0.35;
-      }
+      jinwooRig = new JinwooRigController(loaded.group);
 
       // Attach dual glowing daggers to hands
       const lHand = loaded.group.getObjectByName('Bip001_L_Hand_051');
@@ -308,6 +299,32 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     heroAura.position.y = 0.02;
     heroAnchor.add(heroAura);
 
+    // Dual Cross-Slash Energy Crescent Trails
+    const slashArcGeo = new THREE.RingGeometry(0.85, 1.35, 32, 1, 0, Math.PI * 0.8);
+    const slashArc1Mat = new THREE.MeshBasicMaterial({
+      color: 0x22d3ee,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const slashArc1 = new THREE.Mesh(slashArcGeo, slashArc1Mat);
+    slashArc1.position.set(0.6, 1.25, -0.6);
+    slashArc1.rotation.set(0.2, 0.4, -0.6);
+    heroAnchor.add(slashArc1);
+
+    const slashArc2Mat = new THREE.MeshBasicMaterial({
+      color: 0xa855f7,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const slashArc2 = new THREE.Mesh(slashArcGeo, slashArc2Mat);
+    slashArc2.position.set(0.6, 1.25, -0.6);
+    slashArc2.rotation.set(-0.3, 0.4, 0.8);
+    heroAnchor.add(slashArc2);
+
     // =========================================================================
     // ENEMY SLOT (MOB OR BOSS)
     // =========================================================================
@@ -329,10 +346,13 @@ export const Arena3D: React.FC<Arena3DProps> = ({
 
     let mobModel: THREE.Group | null = null;
     let bossModel: THREE.Group | null = null;
+    let mobRig: EnemyRigController | null = null;
+    let bossRig: EnemyRigController | null = null;
 
     loadCharacterModel('/models/mob.glb', { targetHeight: 1.95 }).then((loaded) => {
       if (disposed || !loaded) return;
       mobModel = loaded.group;
+      mobRig = new EnemyRigController(mobModel);
       if (!isBossRef.current) {
         enemyAnchor.remove(fallbackEnemy);
         enemyAnchor.add(mobModel);
@@ -342,6 +362,7 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     loadCharacterModel('/models/boss.glb', { targetHeight: 2.7 }).then((loaded) => {
       if (disposed || !loaded) return;
       bossModel = loaded.group;
+      bossRig = new EnemyRigController(bossModel);
       if (isBossRef.current) {
         enemyAnchor.remove(fallbackEnemy);
         enemyAnchor.add(bossModel);
@@ -361,7 +382,7 @@ export const Arena3D: React.FC<Arena3DProps> = ({
       [-4.1, 0.22, 1.6],
     ];
 
-    const shadowUnits: { group: THREE.Group; defId: ShadowId }[] = [];
+    const shadowUnits: { group: THREE.Group; defId: ShadowId; rig?: ShadowRigController }[] = [];
 
     const rebuildShadows = () => {
       while (shadowsContainer.children.length > 0) {
@@ -378,7 +399,11 @@ export const Arena3D: React.FC<Arena3DProps> = ({
           sGroup.position.set(slot[0], slot[1], slot[2]);
           sGroup.rotation.y = Math.PI * 0.45;
           shadowsContainer.add(sGroup);
-          shadowUnits.push({ group: sGroup, defId: def.id });
+          const unitEntry: { group: THREE.Group; defId: ShadowId; rig?: ShadowRigController } = {
+            group: sGroup,
+            defId: def.id,
+          };
+          shadowUnits.push(unitEntry);
 
           // Shadow ground aura
           const aura = new THREE.Mesh(
@@ -394,14 +419,20 @@ export const Arena3D: React.FC<Arena3DProps> = ({
           aura.position.y = 0.02;
           sGroup.add(aura);
 
-          const modelPath = (def.id === 'igris' || def.id === 'infantry') ? '/models/igris.glb' : '/models/mob.glb';
+          const modelPath =
+            def.id === 'infantry'
+              ? '/models/shadow_soldier.glb'
+              : def.id === 'igris'
+              ? '/models/igris.glb'
+              : '/models/mob.glb';
           loadCharacterModel(modelPath, {
-            targetHeight: def.id === 'igris' ? 2.3 : (def.id === 'tank' ? 2.2 : 1.75),
+            targetHeight: def.id === 'igris' ? 2.3 : def.id === 'tank' ? 2.2 : 1.75,
             shadowTint: true,
             shadowGlowHex: def.color,
           }).then((loaded) => {
             if (disposed || !loaded) return;
             sGroup.add(loaded.group);
+            unitEntry.rig = new ShadowRigController(loaded.group);
           });
         }
       });
@@ -471,25 +502,58 @@ export const Arena3D: React.FC<Arena3DProps> = ({
 
       // Tap Slash Hero Dash animation
       if (pulseRef.current > 0) {
-        pulseRef.current = Math.max(0, pulseRef.current - dt * 5.0);
+        pulseRef.current = Math.max(0, pulseRef.current - dt * 3.6);
       }
       const dash = Math.sin(pulseRef.current * Math.PI);
       heroAnchor.position.x = -1.6 + dash * 2.1;
 
+      // Dynamic Dual Cross-Slash Energy Blade Trails
+      if (pulseRef.current > 0.15 && pulseRef.current < 0.85) {
+        const arcIntensity = Math.sin(((pulseRef.current - 0.15) / 0.7) * Math.PI);
+        slashArc1Mat.opacity = arcIntensity * 0.95;
+        slashArc2Mat.opacity = arcIntensity * 0.85;
+        slashArc1.scale.setScalar(0.9 + (1 - pulseRef.current) * 0.6);
+        slashArc2.scale.setScalar(0.9 + (1 - pulseRef.current) * 0.6);
+        slashArc1.rotation.z = -0.6 + (1 - pulseRef.current) * 2.2;
+        slashArc2.rotation.z = 0.8 - (1 - pulseRef.current) * 2.2;
+      } else {
+        slashArc1Mat.opacity = 0;
+        slashArc2Mat.opacity = 0;
+      }
+
       // Enemy hit recoil
       if (enemyHitRef.current > 0) {
-        enemyHitRef.current = Math.max(0, enemyHitRef.current - dt * 6.0);
+        enemyHitRef.current = Math.max(0, enemyHitRef.current - dt * 4.8);
       }
       const hitRecoil = Math.sin(enemyHitRef.current * Math.PI);
       enemyAnchor.position.x = 1.6 + hitRecoil * 0.4;
       enemyAnchor.position.y = 0.22 + hitRecoil * 0.15;
 
-      // Idle breathing & floating animations
-      const breath = Math.sin(t * 2.4) * 0.035;
+      // Idle breathing & floating root animations
+      const breath = Math.sin(t * 2.4) * 0.025;
       heroAnchor.position.y = 0.22 + breath;
       if (enemyHitRef.current <= 0) {
-        enemyAnchor.position.y = 0.22 + Math.sin(t * 2.0 + 1) * 0.045;
+        enemyAnchor.position.y = 0.22 + Math.sin(t * 2.0 + 1) * 0.035;
       }
+
+      // =======================================================================
+      // PROCEDURAL SKELETAL RIG ANIMATIONS
+      // =======================================================================
+      // 1. Jinwoo Rig (Combat stance, breathing, coat physics, 3-phase dual cross-slash combo)
+      if (jinwooRig) {
+        jinwooRig.update(t, pulseRef.current);
+      }
+
+      // 2. Enemy Rig (Monster breathing, head tracking, hit stagger & recoil)
+      const activeEnemyRig = currentIsBoss ? bossRig : mobRig;
+      if (activeEnemyRig) {
+        activeEnemyRig.update(t, enemyHitRef.current, currentIsBoss);
+      }
+
+      // 3. Shadow Soldiers Rig (Guard stance, float sway, attack follow-through)
+      shadowUnits.forEach(({ rig }, i) => {
+        rig?.update(t, i, pulseRef.current);
+      });
 
       // Shadow army floating hover
       shadowUnits.forEach(({ group }, i) => {
