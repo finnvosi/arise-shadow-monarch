@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import * as THREE from 'three';
-import { getGate, getWeapon, SHADOW_DEFS } from '../data/gameData';
+import { getGate, SHADOW_DEFS } from '../data/gameData';
 import { ShadowId } from '../types/game';
 import { loadCharacterModel, loadWeaponModel, LoadedModel } from '../utils/modelLoader';
 
@@ -38,7 +38,6 @@ export const Arena3D: React.FC<Arena3DProps> = ({
   shadowsRef.current = shadows;
   domainRef.current = domainActive;
 
-  // Trigger attack slash on slashPulse update
   const heroModelRef = useRef<LoadedModel | null>(null);
   const enemyHitRef = useRef(0);
 
@@ -57,43 +56,51 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     // SCENE & ATMOSPHERIC LIGHTING
     // =========================================================================
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a050d);
-    scene.fog = new THREE.FogExp2(0x0e0614, 0.038);
+    scene.background = new THREE.Color(0x130a1c);
+    scene.fog = new THREE.FogExp2(0x150b20, 0.03);
 
     const width = container.clientWidth || 844;
     const height = container.clientHeight || 390;
-    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-    camera.position.set(0.1, 2.35, 7.6);
+    const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
+    // Position camera cleanly inside the cathedral hall facing down the battle aisle
+    camera.position.set(0.1, 2.15, 6.2);
     camera.lookAt(0.1, 1.25, 0);
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      powerPreference: 'high-performance',
-      alpha: false,
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: 'default',
+        alpha: false,
+      });
+    } catch (err) {
+      console.error('[Arena3D] WebGL context creation failed:', err);
+      return;
+    }
+
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(width, height);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.2;
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
-    // Cinematic Arena Lights (Gothic Cathedral Ambience)
-    const ambientLight = new THREE.AmbientLight(0x2a1e36, 1.25);
+    // Cathedral Ambient & Dramatic Spotlight Lighting
+    const ambientLight = new THREE.AmbientLight(0x382846, 1.4);
     scene.add(ambientLight);
 
-    const heroKeyLight = new THREE.DirectionalLight(0x38bdf8, 2.4);
+    const heroKeyLight = new THREE.DirectionalLight(0x38bdf8, 2.8);
     heroKeyLight.position.set(-5, 8, 5);
     scene.add(heroKeyLight);
 
-    const enemyRimLight = new THREE.DirectionalLight(0xe11d2e, 2.8);
-    enemyRimLight.position.set(6, 6, -3);
+    const enemyRimLight = new THREE.DirectionalLight(0xe11d2e, 3.2);
+    enemyRimLight.position.set(6, 6, -2);
     scene.add(enemyRimLight);
 
-    const overheadVioletLight = new THREE.PointLight(0xa855f7, 2.2, 18);
-    overheadVioletLight.position.set(0, 5, 1);
-    scene.add(overheadVioletLight);
+    const stainedGlassLight = new THREE.PointLight(0xa855f7, 2.8, 22);
+    stainedGlassLight.position.set(0, 6, -3);
+    scene.add(stainedGlassLight);
 
     // =========================================================================
     // 3D FIGHTING ENVIRONMENT (HALL OF BLOOD-RED COMMANDER)
@@ -101,24 +108,42 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     const arenaAnchor = new THREE.Group();
     scene.add(arenaAnchor);
 
-    // Fallback decorative floor ring & grid in case glb is downloading
+    // Decorative Battle Floor (visible immediately while 3D hall streams in)
     const baseFloor = new THREE.Mesh(
-      new THREE.CircleGeometry(26, 48),
+      new THREE.CircleGeometry(24, 48),
       new THREE.MeshStandardMaterial({
-        color: 0x0c0c16,
-        roughness: 0.8,
-        metalness: 0.2,
+        color: 0x161324,
+        roughness: 0.65,
+        metalness: 0.25,
       })
     );
     baseFloor.rotation.x = -Math.PI / 2;
-    baseFloor.position.y = -0.02;
+    baseFloor.position.y = -0.01;
     scene.add(baseFloor);
+
+    // Floor Grid Lines
+    const grid = new THREE.GridHelper(26, 26, 0x8b5cf6, 0x221735);
+    grid.position.y = 0.005;
+    scene.add(grid);
 
     // Load full 3D Hall of Commander environment
     loadCharacterModel('/models/arena.glb', { targetHeight: 13.5 }).then((loaded) => {
       if (disposed || !loaded) return;
-      // Position the throne room hall cleanly centered along the battle aisle
-      loaded.group.position.set(0, 0, -4.5);
+      // Filter out exterior enclosing walls so the camera is never occluded
+      loaded.group.traverse((obj) => {
+        const m = obj as THREE.Mesh;
+        if (m.isMesh) {
+          const matName = (m.material as any)?.name;
+          if (
+            m.name === 'Object_100' ||
+            m.name === 'Object_101' ||
+            m.name === 'Object_114' ||
+            matName === 'Stone_Slate_Wall'
+          ) {
+            m.visible = false;
+          }
+        }
+      });
       arenaAnchor.add(loaded.group);
     });
 
@@ -126,14 +151,14 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     const domainRing = new THREE.Mesh(
       new THREE.RingGeometry(0.5, 7.5, 48),
       new THREE.MeshBasicMaterial({
-        color: 0x7c3aed,
+        color: 0x8b5cf6,
         transparent: true,
         opacity: 0,
         side: THREE.DoubleSide,
       })
     );
     domainRing.rotation.x = -Math.PI / 2;
-    domainRing.position.set(-1.0, 0.01, 0);
+    domainRing.position.set(-1.0, 0.02, 0);
     scene.add(domainRing);
 
     // Floating Dungeon Gate Ring (indicates current stage rank)
@@ -147,17 +172,17 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     scene.add(gateRing);
 
     // =========================================================================
-    // HERO SLOT (SUNG JINWOO + DUAL DAGGERS / SWORD)
+    // HERO SLOT (SUNG JINWOO + DUAL DAGGERS)
     // =========================================================================
     const heroAnchor = new THREE.Group();
     heroAnchor.position.set(-2.2, 0, 0.2);
-    // Jinwoo model faces -Z internally; rotate by -Math.PI / 2 to face +X towards enemy!
+    // Face +X towards enemy
     heroAnchor.rotation.y = -Math.PI / 2;
     scene.add(heroAnchor);
 
-    // Fallback stylized procedural hero while model loads
+    // Stylized procedural fallback while model loads
     const fallbackHero = new THREE.Group();
-    const coatMat = new THREE.MeshStandardMaterial({ color: 0x0e1320, roughness: 0.4 });
+    const coatMat = new THREE.MeshStandardMaterial({ color: 0x111625, roughness: 0.4 });
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.82, 8), coatMat);
     torso.position.y = 1.32;
     fallbackHero.add(torso);
@@ -190,10 +215,10 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     // Hero shadow aura ring on the ground
     const heroAura = new THREE.Mesh(
       new THREE.RingGeometry(0.2, 1.1, 32),
-      new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+      new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
     );
     heroAura.rotation.x = -Math.PI / 2;
-    heroAura.position.y = 0.015;
+    heroAura.position.y = 0.02;
     heroAnchor.add(heroAura);
 
     // =========================================================================
@@ -201,15 +226,15 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     // =========================================================================
     const enemyAnchor = new THREE.Group();
     enemyAnchor.position.set(2.4, 0, 0);
-    // Enemy faces +Z internally; rotate by -Math.PI / 2 to face -X towards Jinwoo!
+    // Face -X towards Jinwoo
     enemyAnchor.rotation.y = -Math.PI / 2;
     scene.add(enemyAnchor);
 
-    // Fallback procedural enemy while loading
+    // Fallback procedural enemy
     const fallbackEnemy = new THREE.Group();
     const enemyBody = new THREE.Mesh(
       new THREE.DodecahedronGeometry(0.7, 0),
-      new THREE.MeshStandardMaterial({ color: 0x1f293d, roughness: 0.5, metalness: 0.3 })
+      new THREE.MeshStandardMaterial({ color: 0x24324a, roughness: 0.5, metalness: 0.3 })
     );
     enemyBody.position.y = 1.05;
     fallbackEnemy.add(enemyBody);
@@ -218,7 +243,6 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     let mobModel: THREE.Group | null = null;
     let bossModel: THREE.Group | null = null;
 
-    // Preload both mob (Imp) and boss (Puglin / Commander) for instantaneous zero-lag swapping
     loadCharacterModel('/models/mob.glb', { targetHeight: 1.95 }).then((loaded) => {
       if (disposed || !loaded) return;
       mobModel = loaded.group;
@@ -253,7 +277,6 @@ export const Arena3D: React.FC<Arena3DProps> = ({
     const shadowUnits: { group: THREE.Group; defId: ShadowId }[] = [];
 
     const rebuildShadows = () => {
-      // Clear existing shadow units
       while (shadowsContainer.children.length > 0) {
         shadowsContainer.remove(shadowsContainer.children[0]);
       }
@@ -266,23 +289,22 @@ export const Arena3D: React.FC<Arena3DProps> = ({
           const slot = slotCoords[idx++];
           const sGroup = new THREE.Group();
           sGroup.position.set(slot[0], slot[1], slot[2]);
-          // Shadow skeletons face +Z; rotate +Math.PI / 2 to face +X towards enemy!
           sGroup.rotation.y = Math.PI / 2;
           shadowsContainer.add(sGroup);
           shadowUnits.push({ group: sGroup, defId: def.id });
 
-          // Shadow summon ground aura
+          // Shadow ground aura
           const aura = new THREE.Mesh(
             new THREE.RingGeometry(0.15, 0.85, 24),
             new THREE.MeshBasicMaterial({
               color: def.color,
               transparent: true,
-              opacity: 0.6,
+              opacity: 0.65,
               side: THREE.DoubleSide,
             })
           );
           aura.rotation.x = -Math.PI / 2;
-          aura.position.y = 0.015;
+          aura.position.y = 0.02;
           sGroup.add(aura);
 
           const modelPath = def.id === 'igris' ? '/models/igris.glb' : '/models/shadow_soldier.glb';
@@ -322,7 +344,7 @@ export const Arena3D: React.FC<Arena3DProps> = ({
       const dt = Math.min(0.05, clock.getDelta());
       const t = now * 0.001;
 
-      // Check if boss state changed without tearing down the renderer
+      // Boss state swap
       if (currentIsBoss !== isBossRef.current) {
         currentIsBoss = isBossRef.current;
         if (currentIsBoss && bossModel) {
@@ -336,14 +358,14 @@ export const Arena3D: React.FC<Arena3DProps> = ({
         }
       }
 
-      // Check if stage gate color changed
+      // Stage gate color update
       if (currentStage !== stageRef.current) {
         currentStage = stageRef.current;
         const gate = getGate(currentStage);
         (gateRing.material as THREE.MeshBasicMaterial).color.setHex(gate.color);
       }
 
-      // Dynamic Domain of Monarch vortex opacity
+      // Domain of Monarch vortex rotation
       const domainActiveVal = domainRef.current;
       const targetDomainOpacity = domainActiveVal ? 0.75 : 0;
       const ringMat = domainRing.material as THREE.MeshBasicMaterial;
@@ -379,12 +401,12 @@ export const Arena3D: React.FC<Arena3DProps> = ({
         group.position.y = Math.sin(t * 3.0 + i * 1.2) * 0.075;
       });
 
-      // Dungeon Gate slow rotation
+      // Dungeon Gate rotation
       gateRing.rotation.z = t * 0.4;
 
       // Subtle dynamic cinematic camera drift
-      camera.position.x = 0.1 + Math.sin(t * 0.25) * 0.3;
-      camera.position.y = 2.35 + Math.cos(t * 0.3) * 0.08;
+      camera.position.x = 0.1 + Math.sin(t * 0.25) * 0.25;
+      camera.position.y = 2.15 + Math.cos(t * 0.3) * 0.06;
       camera.lookAt(0.1, 1.25, 0);
 
       renderer.render(scene, camera);
@@ -398,7 +420,7 @@ export const Arena3D: React.FC<Arena3DProps> = ({
       window.removeEventListener('resize', onResize);
       renderer.dispose();
     };
-  }, []); // Run ONCE on mount; state updates are reflected dynamically via refs!
+  }, []);
 
   if (Platform.OS !== 'web') {
     return (
@@ -416,7 +438,7 @@ export const Arena3D: React.FC<Arena3DProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, width: '100%', height: '100%', backgroundColor: '#0a050d' },
-  nativeFallback: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0a050d', padding: 20 },
+  container: { flex: 1, width: '100%', height: '100%', backgroundColor: '#130a1c' },
+  nativeFallback: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#130a1c', padding: 20 },
   fallbackText: { color: '#22d3ee', fontWeight: '700', textAlign: 'center' },
 });
